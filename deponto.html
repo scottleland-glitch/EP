@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-wave Timing Window Calculator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for clean, readable design */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .card {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .input-field {
+            transition: all 0.2s ease-in-out;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6; /* Blue-500 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="calculator-app" class="card w-full max-w-lg bg-white p-6 md:p-8 rounded-xl space-y-6">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 text-center">
+            P-wave Timing Window Calculator
+        </h1>
+        
+        <!-- Displayed Formula -->
+        <div class="text-center p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <p class="text-gray-700 text-lg font-mono">
+                $$WOI_{Onset} = \frac{(TCL - DUR_{PW})}{2} - \text{Interval}_{PW_{onset}-\text{ref}}$$
+            </p>
+        </div>
+
+        <!-- INPUTS SECTION -->
+        <div class="space-y-4">
+            <!-- 1. TCL (Total Cycle Length) -->
+            <div>
+                <label for="tcl-input" class="block text-sm font-semibold text-gray-700 mb-1">
+                    1. TCL (Total Cycle Length) in ms
+                </label>
+                <input type="number" id="tcl-input" value="600" placeholder="e.g., 600"
+                       class="input-field w-full px-4 py-2 border border-gray-300 rounded-lg text-lg text-gray-900"
+                       oninput="calculateWOI()" min="1" required>
+            </div>
+
+            <!-- 2. DUR_PW (P-wave Duration) -->
+            <div>
+                <label for="durpw-input" class="block text-sm font-semibold text-gray-700 mb-1">
+                    2. DUR_PW (P-wave Duration) in ms
+                </label>
+                <input type="number" id="durpw-input" value="100" placeholder="e.g., 100"
+                       class="input-field w-full px-4 py-2 border border-gray-300 rounded-lg text-lg text-gray-900"
+                       oninput="calculateWOI()" min="0" required>
+            </div>
+
+            <!-- 3. Interval PWonset-ref -->
+            <div>
+                <label for="interval-input" class="block text-sm font-semibold text-gray-700 mb-1">
+                    3. Interval P-wave onset - Ref (Magnitude) in ms
+                </label>
+                <input type="number" id="interval-input" value="150" placeholder="e.g., 150"
+                       class="input-field w-full px-4 py-2 border border-gray-300 rounded-lg text-lg text-gray-900"
+                       oninput="calculateWOI()" required>
+            </div>
+            
+            <!-- Checkbox for Sign Control -->
+            <div class="flex items-center pt-2">
+                <input id="ref-precedes-pw" type="checkbox" onchange="calculateWOI()"
+                       class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="ref-precedes-pw" class="ml-2 block text-sm font-medium text-gray-700 select-none">
+                    Ref precedes P-wave onset (Applies negative sign to Interval)
+                </label>
+            </div>
+        </div>
+
+        <!-- OUTPUT SECTION -->
+        <div class="pt-6 border-t border-gray-200">
+            <h2 class="text-xl font-bold text-gray-800 mb-3 text-center">Timing Window Results</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Left Window Output -->
+                <div class="p-4 rounded-xl text-center bg-blue-100 text-blue-800 transition duration-300" id="left-result-card">
+                    <p class="text-sm font-semibold mb-1">Left Window ($WOI_{Onset}$)</p>
+                    <div id="woi-onset-output" class="text-4xl font-extrabold">
+                        100.0 ms
+                    </div>
+                </div>
+
+                <!-- Right Window Output -->
+                <div class="p-4 rounded-xl text-center bg-green-100 text-green-800 transition duration-300">
+                    <p class="text-sm font-semibold mb-1">Right Window ($WOI_{Offset}$)</p>
+                    <div id="woi-offset-output" class="text-4xl font-extrabold">
+                        500.0 ms
+                    </div>
+                </div>
+            </div>
+            
+            <p id="error-message" class="text-center text-sm mt-3 text-red-600 font-medium hidden">
+                Error: TCL must be strictly greater than DUR_PW.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Calculates WOI_Onset and WOI_Offset based on the inputs and rules.
+         * WOI_Onset = ((TCL - DUR_PW) / 2) - Interval_PWonset-ref
+         * WOI_Offset = TCL - WOI_Onset
+         */
+        function calculateWOI() {
+            // Get inputs
+            const tcl = parseFloat(document.getElementById('tcl-input').value);
+            const durPw = parseFloat(document.getElementById('durpw-input').value);
+            let intervalMagnitude = parseFloat(document.getElementById('interval-input').value);
+            const refPrecedesPw = document.getElementById('ref-precedes-pw').checked;
+
+            // Get output elements
+            const woiOnsetOutput = document.getElementById('woi-onset-output');
+            const woiOffsetOutput = document.getElementById('woi-offset-output');
+            const leftResultCard = document.getElementById('left-result-card');
+            const errorMessage = document.getElementById('error-message');
+
+            // Reset state
+            errorMessage.classList.add('hidden');
+            leftResultCard.classList.remove('bg-red-100', 'text-red-800');
+            leftResultCard.classList.add('bg-blue-100', 'text-blue-800');
+
+            // --- Basic Input Validation ---
+            if (isNaN(tcl) || isNaN(durPw) || isNaN(intervalMagnitude)) {
+                woiOnsetOutput.textContent = '---';
+                woiOffsetOutput.textContent = '---';
+                return;
+            }
+            
+            // --- Formula-Specific Validation (TCL must be > DUR_PW) ---
+            if (tcl <= durPw) {
+                woiOnsetOutput.textContent = 'ERROR';
+                woiOffsetOutput.textContent = '---';
+                leftResultCard.classList.remove('bg-blue-100', 'text-blue-800');
+                leftResultCard.classList.add('bg-red-100', 'text-red-800');
+                errorMessage.textContent = 'Error: TCL must be strictly greater than DUR_PW.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // --- Apply Sign Logic to Interval Input ---
+            // The Interval is used as a negative value in the formula when the ref signal precedes P-wave onset.
+            let intervalValue = intervalMagnitude;
+            if (refPrecedesPw) {
+                intervalValue = -intervalMagnitude;
+            }
+
+            // --- Calculation ---
+            try {
+                // 1. Calculate Left Window (WOI_Onset)
+                // WOI_Onset = ((TCL - DUR_PW) / 2) - Interval_PWonset-ref
+                const woiOnset = ((tcl - durPw) / 2) - intervalValue;
+
+                // 2. Calculate Right Window (WOI_Offset)
+                // WOI_Offset = TCL - WOI_Onset
+                const woiOffset = tcl - woiOnset;
+
+                // Format and display results (1 decimal place)
+                woiOnsetOutput.textContent = `${woiOnset.toFixed(1)} ms`;
+                woiOffsetOutput.textContent = `${woiOffset.toFixed(1)} ms`;
+
+            } catch (e) {
+                woiOnsetOutput.textContent = 'Calc Error';
+                woiOffsetOutput.textContent = 'Calc Error';
+                console.error("Calculation failed:", e);
+            }
+        }
+
+        // Run the calculation once on page load with default values
+        window.onload = calculateWOI;
+    </script>
+</body>
+</html>
+
+
